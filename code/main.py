@@ -1,12 +1,20 @@
 import os
-
 # import numpy as np
-import torch
 # import random
 from torch.utils.data import Dataset
 from torchtext.data.utils import get_tokenizer
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+import string
+from torchtext.vocab import build_vocab_from_iterator
+import torch
+from torch.nn.utils.rnn import pad_sequence
 
 tokenizer = get_tokenizer('basic_english')
+nltk.download('punkt')
+nltk.download('stopwords')
+stop_words = set(stopwords.words('english'))
 
 class FriendsDataset(Dataset):
     def __init__(self, data_folder):
@@ -23,11 +31,26 @@ class FriendsDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
+    def __iter__(self):
+        for script in self.data:
+            yield script
+
+
+def yield_tokens(data_iter):
+    for text in data_iter:
+        tokens = word_tokenize(text)
+        filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
+        normalized_tokens = [word.lower() for word in filtered_tokens if word.isalnum()]
+        yield normalized_tokens
+
+def text_to_vector(text):
+    tokens = word_tokenize(text)
+    filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
+    normalized_tokens = [word.lower() for word in filtered_tokens if word.isalnum()]
+    return [vocab[token] for token in normalized_tokens]
 
 def load_scripts(folder_path):
-    return  FriendsDataset(folder_path)
-
-
+    return FriendsDataset(folder_path)
 
 
 def tokenize_text(text):
@@ -45,14 +68,22 @@ if __name__ == '__main__':
     print(test_size)
 
     train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, val_size, test_size])
+    # print(train_dataset[0])
+    # tokenized_text = tokenize_text(train_dataset[0])
+    # print(tokenized_text)
 
-    # Primer kako izgleda podatak
-    print(train_dataset[0])
+    vocab = build_vocab_from_iterator(yield_tokens(dataset), specials=["<unk>"])
+    vocab.set_default_index(vocab["<unk>"])
 
-    # Primjer tokenizacije teksta
+    counter = 0
+    for word, index in vocab.get_stoi().items():
+        counter+=1
+        # print(f'Word: {word}, Index: {index}')
 
+    print(counter)
+    vectors = [torch.tensor(text_to_vector(text), dtype=torch.long) for text in dataset]
 
-    tokenized_text = tokenize_text(train_dataset[0])
-    print(tokenized_text)
+    padded_vectors = pad_sequence(vectors, batch_first=True, padding_value=0)
+    print(padded_vectors)
 
 
