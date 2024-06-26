@@ -121,6 +121,29 @@ def evaluate(model, dataloader, criterion, vocab_size):
     return total_loss / len(dataloader), accuracy
 
 
+
+def generate_text(model, start_text, vocab, idx_to_word, max_length=1000):
+    model.eval()
+    tokens = tokenize(start_text)
+    sequences = [vocab.get(token, 0) for token in tokens]
+    inputs = torch.tensor(sequences).unsqueeze(0).to(device)
+    hidden = model.init_hidden(1)
+
+    generated_text = start_text
+
+    with torch.no_grad():
+        for _ in range(max_length):
+            output, hidden = model(inputs, hidden)
+            output = output[:, -1, :]
+            _, top_idx = torch.topk(output, 1)
+            top_idx = top_idx.item()
+            word = idx_to_word[top_idx]
+            generated_text += ' ' + word
+            inputs = torch.cat((inputs, torch.tensor([[top_idx]]).to(device)), dim=1)
+
+    return generated_text
+
+
 if __name__ == '__main__':
     episodes = load_scripts("scripts")
     print(f"Loaded {len(episodes)} episodes")
@@ -165,6 +188,14 @@ if __name__ == '__main__':
     # TEST AND ACCURACY
     test_loss, test_accuracy = evaluate(model, test_loader, criterion, vocab_size)
     print(f"Test Loss: {test_loss}, Test Accuracy: {test_accuracy}")
+
+    idx_to_word = {idx: word for word, idx in vocab.items()}
+    # print(idx_to_word)
+
+    # New episode
+    start_text = "New episode: " + '\n\n\n'
+    generated_text = generate_text(model, start_text, vocab, idx_to_word)
+    print(generated_text)
 
 
 
