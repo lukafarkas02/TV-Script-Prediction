@@ -42,6 +42,21 @@ def create_sequences(tokenized_texts, sequence_length=50):
     return sequences
 
 
+class TextDataset(Dataset):
+    def __init__(self, sequences):
+        self.sequences = sequences
+
+    def __len__(self):
+        return len(self.sequences)
+
+    def __getitem__(self, idx):
+        return torch.tensor(self.sequences[idx][:-1]), torch.tensor(self.sequences[idx][1:])
+
+def collate_fn(batch):
+    inputs, targets = zip(*batch)
+    inputs = pad_sequence(inputs, batch_first=True, padding_value=0)
+    targets = pad_sequence(targets, batch_first=True, padding_value=0)
+    return inputs, targets
 
 
 if __name__ == '__main__':
@@ -55,6 +70,20 @@ if __name__ == '__main__':
 
     sequences = sequences
     print(f"Number of sequences: {len(sequences)}")
+
+    train_data, test_data = train_test_split(sequences, test_size=0.2)
+    train_data, val_data = train_test_split(train_data, test_size=0.2)
+
+    train_dataset = TextDataset(train_data)
+    val_dataset = TextDataset(val_data)
+    test_dataset = TextDataset(test_data)
+
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, collate_fn=collate_fn)
+    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, collate_fn=collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, collate_fn=collate_fn)
+
+    print(f"Train size: {len(train_dataset)}, Val size: {len(val_dataset)}, Test size: {len(test_dataset)}")
+
 
 
 
