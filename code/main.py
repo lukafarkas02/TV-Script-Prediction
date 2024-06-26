@@ -1,16 +1,13 @@
 import os
-import numpy as np
 import glob
-from torch.utils.data import Dataset
-from torchtext.data.utils import get_tokenizer
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from collections import Counter
 import torch
-
-tokenizer = get_tokenizer('basic_english')
-stop_words = set(stopwords.words('english'))
+import numpy as np
+from torch import device
+from torch.utils.data import Dataset, DataLoader
+from sklearn.model_selection import train_test_split
+from collections import Counter
+from torch.nn.utils.rnn import pad_sequence
+import torch.nn as nn
 
 
 def load_scripts(path):
