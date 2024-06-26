@@ -67,12 +67,58 @@ class LSTMModel(nn.Module):
         self.fc = nn.Linear(hidden_dim, vocab_size)
 
     def forward(self, x, hidden):
-        pass
+        x = self.embedding(x)
+        out, hidden = self.lstm(x, hidden)
+        out = self.fc(out)
+        return out, hidden
 
     def init_hidden(self, batch_size):
         weight = next(self.parameters()).data
         return (weight.new(self.lstm.num_layers, batch_size, self.lstm.hidden_size).zero_(),
                 weight.new(self.lstm.num_layers, batch_size, self.lstm.hidden_size).zero_())
+
+
+def train(model, dataloader, criterion, optimizer, epoch, vocab_size):
+    model.train()
+    total_loss = 0
+    hidden = model.init_hidden(dataloader.batch_size)
+    for inputs, targets in dataloader:
+        inputs, targets = inputs.to(device), targets.to(device)
+
+        hidden = tuple([each.data for each in hidden])
+        model.zero_grad()
+        output, hidden = model(inputs, hidden)
+        loss = criterion(output.view(-1, vocab_size), targets.view(-1))
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    print(f"Epoch {epoch}, Loss: {total_loss / len(dataloader)}")
+
+
+def evaluate(model, dataloader, criterion, vocab_size):
+    model.eval()
+    total_loss = 0
+    total_correct = 0
+    total_count = 0
+    hidden = model.init_hidden(dataloader.batch_size)
+
+    with torch.no_grad():
+        for inputs, targets in dataloader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            hidden = tuple([each.data for each in hidden])
+            output, hidden = model(inputs, hidden)
+
+            loss = criterion(output.view(-1, vocab_size), targets.view(-1))
+            total_loss += loss.item()
+
+            _, predicted = torch.max(output, dim=2)
+            total_correct += (predicted == targets).sum().item()
+            total_count += targets.numel()
+
+    accuracy = total_correct / total_count
+    return total_loss / len(dataloader), accuracy
 
 
 if __name__ == '__main__':
@@ -100,6 +146,25 @@ if __name__ == '__main__':
 
     print(f"Train size: {len(train_dataset)}, Val size: {len(val_dataset)}, Test size: {len(test_dataset)}")
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    vocab_size = len(vocab) + 1
+    embedding_dim = 128
+    hidden_dim = 256
+    num_layers = 2
+
+    model = LSTMModel(vocab_size, embedding_dim, hidden_dim, num_layers).to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+    num_epochs = 10
+    for epoch in range(1, num_epochs + 1):
+        train(model, train_loader, criterion, optimizer, epoch, vocab_size)
+        val_loss, val_accuracy = evaluate(model, val_loader, criterion, vocab_size)
+        print(f"Validation Loss: {val_loss}, Validation Accuracy: {val_accuracy}")
+
+    # TEST AND ACCURACY
+    test_loss, test_accuracy = evaluate(model, test_loader, criterion, vocab_size)
+    print(f"Test Loss: {test_loss}, Test Accuracy: {test_accuracy}")
 
 
 
