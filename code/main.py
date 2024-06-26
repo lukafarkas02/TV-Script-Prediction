@@ -59,6 +59,22 @@ def collate_fn(batch):
     return inputs, targets
 
 
+class LSTMModel(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, num_layers):
+        super(LSTMModel, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, vocab_size)
+
+    def forward(self, x, hidden):
+        pass
+
+    def init_hidden(self, batch_size):
+        weight = next(self.parameters()).data
+        return (weight.new(self.lstm.num_layers, batch_size, self.lstm.hidden_size).zero_(),
+                weight.new(self.lstm.num_layers, batch_size, self.lstm.hidden_size).zero_())
+
+
 if __name__ == '__main__':
     episodes = load_scripts("scripts")
     print(f"Loaded {len(episodes)} episodes")
