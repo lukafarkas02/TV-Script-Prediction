@@ -1,9 +1,12 @@
 import glob
 import os
 import nltk
+from gensim.models import Word2Vec
+import numpy as np
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+from string import punctuation
 import string
 import re
 import pandas as pd
@@ -11,6 +14,22 @@ from sklearn.metrics import accuracy_score
 import torch
 from sklearn.model_selection import train_test_split
 from collections import Counter
+import datetime
+import math
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score,classification_report,confusion_matrix
+
+stopword_list = stopwords.words("english")
+
+
+def parse_script(script):
+    script = re.sub(r'\[.*?\]', '', script)
+    script = re.sub(r'Written by:.*?\n', '', script)
+    script = re.sub(r'Opening Credits', '', script)
+    lines = re.findall(r'([A-Z][a-zA-Z]+): (.*?)\n', script)
+    df = pd.DataFrame(lines, columns=['role', 'text'])
+    df['role'] = df['role'].str.title()
+    return df
 
 
 def load_scripts(path):
@@ -21,108 +40,121 @@ def load_scripts(path):
             scripts.append(content)
     return scripts
 
-def preprocessing_data(text):
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    tokens = word_tokenize(text.lower())
-    stop_words = set(stopwords.words('english'))
-    tokens = [word for word in tokens if word not in stop_words]
-    lemmatizer = WordNetLemmatizer()
-    tokens = [lemmatizer.lemmatize(word) for word in tokens]
-    preprocessed_text = ' '.join(tokens)
-    return preprocessed_text
+
+def clean_text(data):
+    tokens = word_tokenize(data)
+    clean_data = [word.lower() for word in tokens if (word.lower() not in string.punctuation) and (word.lower() not in stopword_list) and (len(word)>2) and (word.isalpha())]
+    return clean_data
 
 
-def get_n_grams_frequencies(texts, categories, n):
-    total_grams = 0
-    n_gram_category = {}
-    n_gram_counter = {}
-    for text, category in zip(texts, categories):
-        total_line_length = len(text)
-        line_length = total_line_length - n + 1
-        for line in range(line_length):
-            n_gram_word = text[line:n + line]
-            total_grams += 1
-            if n_gram_word+"@"+category in n_gram_category:
-                n_gram_category[n_gram_word+"@"+category] += 1
-            else:
-                n_gram_category[n_gram_word+"@"+category] = 1
-            if n_gram_word in n_gram_counter:
-                n_gram_counter[n_gram_word] += 1
-            else:
-                n_gram_counter[n_gram_word] = 1
-
-    counter = Counter(n_gram_counter)
-    keys_sorted_by_value = sorted(counter.keys(), key=lambda k: counter[k], reverse=True)
-
-    unique_categories = categories.unique()
-    frequency_dict = {}
-    for n_gram_sorted in keys_sorted_by_value:
-        for category in unique_categories:
-            key = n_gram_sorted + "@" + category
-            if key in n_gram_category.keys():
-                frequency_dict[key] = n_gram_category[key] / total_grams
-                # print(frequency_dict[key])
-            else:
-                frequency_dict[key] = 0
-
-    sorted_frequency = sorted(frequency_dict.items(), key=lambda x: x[1], reverse=True)
-    # for idx, (word, freq) in enumerate(sorted_frequency[:100], start=1):
-    #     print(f"{idx}. {word}: {freq}")
-    counter = 0
-    zero_counter = 0
-    non_zero_counter = 0
-    for key, value in sorted_frequency:
-        # print(value)
-        if value == 0:
-            zero_counter += 1
+def vectorizer(final_text, model):
+    features = []
+    for review in final_text:
+        zero_vector = np.zeros(model.vector_size)
+        vectors = []
+        for word in review:
+            try:
+                if word in model.wv:
+                    vectors.append(model.wv[word])
+            except KeyError:
+                continue
+        if vectors:
+            vectors = np.asarray(vectors)
+            avg_vec = vectors.mean(axis=0)
+            features.append(avg_vec)
         else:
-            non_zero_counter += 1
-
-    print("Non zero: " + str(non_zero_counter))
-    print("Zero counter: " + str(zero_counter))
-
-    return sorted_frequency
-
-
+            features.append(zero_vector)
+    return features
 
 
 if __name__ == "__main__":
-    # data = load_scripts("scripts")
-    # # print(preprocessing_data("L.R. Brane loves his life - his car, his apartment, his job, but especially his girlfriend, Vespa. One day while showering, Vespa runs out of shampoo. L.R. runs across the street to a convenience store to buy some more, a quick trip of no more than a few minutes. When he returns, Vespa is gone and every trace of her existence has been wiped out. L.R.'s life becomes a tortured existence as one strange event after another occurs to confirm in his mind that a conspiracy is working against his finding Vespa."))
-    # # print("")
-    # directory = 'scripts'
-    # df = process_all_scripts(directory)
-    #
-    # # Prikaz prvih nekoliko redova DataFrame-a
-    # print(df)
+    print(datetime.datetime.now())
 
-    # Učitajte CSV fajl
     df = pd.read_csv('new/ecommerceDataset.csv')
     df.columns = ['category', 'text']
     df['text'] = df['text'].astype(str)
-    df['text'] = df['text'].apply(preprocessing_data)
 
-    X = df['text']
-    # print(df['text'])
-    # print("--------")
-    # print(df[['text']])
-    # input()
-    y = df['category']
+    print(df['text'])
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    frequencies = get_n_grams_frequencies(X_train, y_train, 3)
-    print(frequencies)
+    df['cleaned_text'] = df['text'].apply(clean_text)
 
-    # knn = KNNClassifier(k=4000)
-    # knn.fit(frequencies, y_train)
+    model = Word2Vec(sentences=df['cleaned_text'], vector_size=100, window=5, min_count=1, workers=4)
 
-    # x_test = test_data_preprocessing(X_test, 3)
-    # print(x_test)
-    # y_pred = knn.predict(x_test)
-    # accuracy = (y_pred == y_test_tensor).sum().item() / len(y_test_tensor)
-    # print("Tačnost:", accuracy)
+    df['vectorized_text'] = vectorizer(df['cleaned_text'], model)
+
+    df['category'] = df['category'].replace({"Household": 0, "Books": 1, "Electronics": 2, "Clothing & Accessories": 3})
+
+    x_train, x_test, y_train, y_test = train_test_split(df['vectorized_text'].tolist(), df['category'].values, test_size=0.2)
+
+    classifier = KNeighborsClassifier(n_neighbors=5)  # Example: k=5
+    classifier.fit(x_train, y_train)
+
+    # Evaluate the model
+    y_pred = classifier.predict(x_test)
     # accuracy = accuracy_score(y_test, y_pred)
-    # print("Accuracy:", accuracy * 100)
-    # print(datetime.datetime.now())
+    # print(f"Accuracy: {accuracy}")
+    # print("Model evaluation on Test data")
+    # print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+    # print()
+    # print("Classification Report:\n", classification_report(y_test, y_pred))
+    # print()
+    acc_test = accuracy_score(y_test, y_pred) * 100
+    print('Accuracy for KNN Model on Test Data is:', acc_test)
+    print("********************************************************")
+
+    episodes = load_scripts("scripts")
+    print(len(episodes))
+    print(datetime.datetime.now())
+    dfs = [parse_script(script) for script in episodes]
+    all_dialogues_df = pd.concat(dfs, ignore_index=True)
+    count_role = {}
+    for index, row in all_dialogues_df.iterrows():
+        text = row['text']
+        role = row['role']
+        if role in count_role:
+            count_role[role] += 1
+        else:
+            count_role[role] = 1
+
+    dict_data = Counter(count_role)
+    print(dict_data)
+    top_6 = Counter(dict_data).most_common(6)
+    top_6_roles = [word for word, count in top_6]
+
+    filtered_df = all_dialogues_df[all_dialogues_df['role'].isin(top_6_roles)]
+    print(filtered_df['text'])
+    filtered_df['text'] = filtered_df['text'].astype(str)
+    filtered_df['cleaned_text'] = filtered_df['text'].apply(clean_text)
+
+    model = Word2Vec(sentences=filtered_df['cleaned_text'], vector_size=50, window=2, min_count=2, workers=4)
+    print(model.vector_size)
+
+
+    filtered_df['vectorized_text'] = vectorizer(filtered_df['cleaned_text'], model)
+
+    filtered_df['role'] = filtered_df['role'].replace({"Joey": 0, "Monica": 1, "Rachel": 2, "Chandler": 3,
+                                                               "Ross": 4, "Phoebe": 5})
+
+    print(filtered_df['role'].value_counts())
+    print(input())
+
+    x_train, x_test, y_train, y_test = train_test_split(filtered_df['vectorized_text'].tolist(), filtered_df['role'].values,
+                                                        test_size=0.2)
+
+    classifier = KNeighborsClassifier(n_neighbors=13)  # Example: k=5
+    classifier.fit(x_train, y_train)
+
+    # Evaluate the model
+    y_pred = classifier.predict(x_test)
+    # accuracy = accuracy_score(y_test, y_pred)
+    # print(f"Accuracy: {accuracy}")
+    # print("Model evaluation on Test data")
+    # print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+    # print()
+    # print("Classification Report:\n", classification_report(y_test, y_pred))
+    # print()
+    acc_test = accuracy_score(y_test, y_pred) * 100
+    print('Accuracy for KNN Model on Test Data is:', acc_test)
+    print("********************************************************")
 
 
