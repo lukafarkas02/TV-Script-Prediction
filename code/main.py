@@ -140,6 +140,38 @@ def evaluate(model, dataloader, criterion, vocab_size):
     return total_loss / len(dataloader), accuracy
 
 
+def clean_generated_text(text):
+    # Split the text into lines
+    lines = text.strip().split('\n')
+
+    # List of character names for reference
+    characters = ['Ross', 'Chandler', 'Rachel', 'Monica', 'Joey', 'Phoebe']
+
+    cleaned_lines = []
+
+    for line in lines:
+        # Check if the line starts with a character's name followed by ':'
+        if any(line.lstrip().startswith(char + ':') for char in characters):
+            # Add dialogue lines directly
+            cleaned_lines.append(line.strip())
+        else:
+            # Clean up non-dialogue lines (stage directions, etc.)
+            cleaned_line = line.strip()
+            if cleaned_line.startswith('(') and ')' in cleaned_line:
+                # Strip out stage directions, keeping only what's inside parentheses
+                start_idx = cleaned_line.find('(')
+                end_idx = cleaned_line.find(')')
+                cleaned_line = cleaned_line[:start_idx].strip() + ' (' + cleaned_line[
+                                                                         start_idx + 1:end_idx].strip() + ')'
+
+            # Add cleaned line to the list if it's not empty
+            if cleaned_line:
+                cleaned_lines.append(cleaned_line)
+
+    return '\n'.join(cleaned_lines)
+
+
+
 def generate_text(model, start_text, vocab, idx_to_word):
     clear_terminal()
     max_length = int(input("Length of the script:\n> "))
@@ -169,11 +201,12 @@ def generate_text(model, start_text, vocab, idx_to_word):
             # word = idx_to_word[top_idx]
             word = idx_to_word.get(top_idx, '<UNK>')
             generated_text += ' ' + word
-            if word[-1] in ['.', '?', '!', ')', ']']:  # TODO: Find a better way to format the generated script.
+            if word[-1] in ['.', '?', '!', ')', ']']:
                 generated_text += '\n\n'
 
             inputs = torch.cat((inputs, torch.tensor([[top_idx]]).to(device)), dim=1)
 
+        generated_text = clean_generated_text(generated_text)
     return generated_text
 
 
@@ -211,6 +244,8 @@ def load_model(vocab_size, embedding_dim, hidden_dim, num_layers):
 # TODO: Separate by modules
 
 
+
+
 if __name__ == '__main__':
     episodes = load_scripts("scripts")
     print(f"Loaded {len(episodes)} episodes")
@@ -238,7 +273,7 @@ if __name__ == '__main__':
                 sequences = text_to_sequences(tokenized_texts, vocab)
                 sequences = create_sequences(sequences)
 
-                sequences = sequences[:120000]  # TODO: Make it so users can select the amount of training data.
+                sequences = sequences[:240000]  # TODO: Make it so users can select the amount of training data.
                 print(f"Number of sequences: {len(sequences)}")
 
                 train_data, test_data = train_test_split(sequences, test_size=0.2)
