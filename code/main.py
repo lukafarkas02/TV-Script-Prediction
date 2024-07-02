@@ -316,8 +316,18 @@ if __name__ == '__main__':
                     start_text = "New episode: " + '\n\n\n'
                     generated_text = generate_text(model, start_text, vocab, idx_to_word) + '\n'
                     print(generated_text)
-                    with open("generated_scripts/script.txt", "a") as text_file:
+                    index = 1
+                    while os.path.exists(f"generated_scripts/script_{index}.txt"):
+                        index += 1
+
+                    # Construct the file name with the next available index
+                    file_name = f"generated_scripts/script_{index}.txt"
+
+                    # Write the generated text to the new file
+                    with open(file_name, "w") as text_file:
                         text_file.write(generated_text)
+
+                    print(f"Generated text saved to {file_name}")
                 except Exception as e:  # TODO: What exception is this???
                     print("Unable to generate text, no model present!")
             case _:
