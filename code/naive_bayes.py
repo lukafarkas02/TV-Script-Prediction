@@ -8,7 +8,7 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.metrics import classification_report, accuracy_score, recall_score
+from sklearn.metrics import classification_report, accuracy_score, recall_score, confusion_matrix
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import TweetTokenizer
@@ -56,15 +56,7 @@ def preprocess(sample):
     return output
 
 
-# if __name__ == "__main__":
-#     df = pd.read_csv('new/ecommerceDataset.csv')
-#     df.dropna(inplace=True)
-#     df.columns = ['category', 'text']
-#     # test = df.tail(3)
-#     # data = df.head(50420)
-
-
-class NB_Text_Classifier:
+class NBTextClassifier:
     def __init__(self, texts: list, categories: list) -> None:
         assert len(texts) == len(categories), 'Za svaki tekst postoji tačno jedna kategorija.'
         self.texts = texts
@@ -79,13 +71,12 @@ class NB_Text_Classifier:
             self.word_counts[category] = {}
             self.text_counts[category] = 0
             self.n_words[category] = 0
-            self.prior[category] = 0
+            self.prior[category] = 0.0
 
     def _preprocess(self, text: str) -> list:
-        '''Preprocess and returns text.'''
         import re
-        text = re.sub(r'[^\w\s]', '', text)  # uklonimo znakove
-        words = text.lower().split()  # svedemo na mala slova i podelimo na reči
+        text = re.sub(r'[^\w\s]', '', text)
+        words = text.lower().split()
         return words
 
     def fit(self) -> None:
@@ -102,28 +93,23 @@ class NB_Text_Classifier:
             self.prior[category] = self.text_counts[category] / total_texts
 
     def predict(self, text: str) -> dict:
-        '''Returns a dictionary of probabilities for each category.'''
         words = self._preprocess(text)
         category_probs = {}
 
         for category in self.unique_categories:
             p_words_given_category = []
             for word in words:
-                # Verovatnoća da se reč nađe u recenziji određene kategorije
                 p_word_given_category = (self.word_counts[category].get(word, 0) + 1) / (
-                        self.n_words[category] + len(self.word_counts[category]))  # Laplace Smoothing
+                        self.n_words[category] + len(self.word_counts[category]))
                 p_words_given_category.append(p_word_given_category)
 
-            # Računamo P(text|category) tako što pomnožimo verovatnoću za svaku reč
             p_text_given_category = np.prod(p_words_given_category)
 
-            # Iskoristimo Bajesovu formulu da nađemo P(category|text)
             category_probs[category] = self.prior[category] * p_text_given_category
 
         return category_probs
 
     def predict_category(self, text: str) -> str:
-        '''Predicts the category for a given text.'''
         category_probs = self.predict(text)
         return max(category_probs, key=category_probs.get)
 
@@ -139,7 +125,7 @@ if __name__ == '__main__':
     train_texts = train_df['text'].tolist()
     train_categories = train_df['category'].tolist()
 
-    clf = NB_Text_Classifier(train_texts, train_categories)
+    clf = NBTextClassifier(train_texts, train_categories)
     clf.fit()
 
     test_texts = test_df['text'].tolist()
@@ -150,6 +136,11 @@ if __name__ == '__main__':
 
     # Calculate accuracy using sklearn's accuracy_score
     accuracy = accuracy_score(test_categories, predictions)
+    print("Model evaluation on Test data")
+    print("Confusion Matrix:\n", confusion_matrix(test_categories, predictions))
+    print()
+    print("Classification Report:\n", classification_report(test_categories, predictions))
+    print()
 
     print(f'Accuracy: {accuracy:.2f}')
 

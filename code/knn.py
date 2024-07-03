@@ -18,7 +18,7 @@ import datetime
 import math
 from collections import defaultdict
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score,classification_report,confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
 stopword_list = stopwords.words("english")
 
@@ -27,9 +27,9 @@ class KNNClassifier():
     def __init__(self, k=1):
         self.k = k
 
-    def fit(self,X,y):
-        self.X= X
-        self.y= y
+    def fit(self, X, y):
+        self.X = X
+        self.y = y
 
     def calculate_distance(self, first_k_frequency, X_test):
         distance = defaultdict(float)
@@ -41,6 +41,7 @@ class KNNClassifier():
         for category in distance:
             distance[category] = math.sqrt(distance[category])
         return distance
+
     def predict(self, X):
         Y_pred = [None] * len(X)
         first_k_frequency = self.X[:self.k]
@@ -50,7 +51,7 @@ class KNNClassifier():
             Y_pred[index] = min(distance, key=distance.get)
 
         return Y_pred
-    
+
 
 def pretprocessing(X_test, n):
     all_instances = []
@@ -82,11 +83,11 @@ def get_n_grams_frequencies(texts, categories, n):
         # total_grams += line_length
         for line in range(line_length):
             n_gram_word = text[line:n + line]
-            total_grams+=1
-            if n_gram_word+"@"+str(category) in n_gram_category:
-                n_gram_category[n_gram_word+"@"+str(category)] += 1
+            total_grams += 1
+            if n_gram_word + "@" + str(category) in n_gram_category:
+                n_gram_category[n_gram_word + "@" + str(category)] += 1
             else:
-                n_gram_category[n_gram_word+"@"+str(category)] = 1
+                n_gram_category[n_gram_word + "@" + str(category)] = 1
             if n_gram_word in n_gram_counter:
                 n_gram_counter[n_gram_word] += 1
             else:
@@ -120,6 +121,7 @@ def get_n_grams_frequencies(texts, categories, n):
                 frequency_dict[key] = 0
     return list(frequency_dict.items())
 
+
 def parse_script(script):
     script = re.sub(r'\[.*?\]', '', script)
     script = re.sub(r'Written by:.*?\n', '', script)
@@ -141,7 +143,9 @@ def load_scripts(path):
 
 def clean_text(data):
     tokens = word_tokenize(data)
-    clean_data = [word.lower() for word in tokens if (word.lower() not in string.punctuation) and (word.lower() not in stopword_list) and (len(word)>2) and (word.isalpha())]
+    clean_data = [word.lower() for word in tokens if
+                  (word.lower() not in string.punctuation) and (word.lower() not in stopword_list) and (
+                              len(word) > 2) and (word.isalpha())]
     return clean_data
 
 
@@ -184,7 +188,8 @@ if __name__ == "__main__":
     # df = df.copy(deep=True)
     df['category'] = df['category'].replace({"Household": 0, "Books": 1, "Electronics": 2, "Clothing & Accessories": 3})
 
-    x_train, x_test, y_train, y_test = train_test_split(df['vectorized_text'].tolist(), df['category'].values, test_size=0.2)
+    x_train, x_test, y_train, y_test = train_test_split(df['vectorized_text'].tolist(), df['category'].values,
+                                                        test_size=0.2)
 
     classifier = KNeighborsClassifier(n_neighbors=5)
     classifier.fit(x_train, y_train)
@@ -228,15 +233,15 @@ if __name__ == "__main__":
     model = Word2Vec(sentences=filtered_df['cleaned_text'], vector_size=50, window=2, min_count=2, workers=4)
     print(model.vector_size)
 
-
     filtered_df['vectorized_text'] = vectorizer(filtered_df['cleaned_text'], model)
 
     filtered_df['role'] = filtered_df['role'].replace({"Joey": 0, "Monica": 1, "Rachel": 2, "Chandler": 3,
-                                                               "Ross": 4, "Phoebe": 5})
+                                                       "Ross": 4, "Phoebe": 5})
 
     # print(filtered_df['role'].value_counts())
 
-    x_train, x_test, y_train, y_test = train_test_split(filtered_df['vectorized_text'].tolist(), filtered_df['role'].values,
+    x_train, x_test, y_train, y_test = train_test_split(filtered_df['vectorized_text'].tolist(),
+                                                        filtered_df['role'].values,
                                                         test_size=0.2)
 
     classifier = KNeighborsClassifier(n_neighbors=13)
@@ -244,24 +249,15 @@ if __name__ == "__main__":
 
     # Evaluate the model
     y_pred = classifier.predict(x_test)
-    # accuracy = accuracy_score(y_test, y_pred)
-    # print(f"Accuracy: {accuracy}")
-    # print("Model evaluation on Test data")
-    # print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
-    # print()
-    # print("Classification Report:\n", classification_report(y_test, y_pred))
-    # print()
+
     acc_test = accuracy_score(y_test, y_pred) * 100
     print('Accuracy for KNN Model on Test Data is:', acc_test)
     print("********************************************************")
 
-
-#     MY CUSTOM KNN WITH N_GRAMS
+    #     MY CUSTOM KNN WITH N_GRAMS
     dfNew = pd.read_csv('new/ecommerceDataset.csv')
     dfNew.columns = ['category', 'text']
     dfNew['text'] = dfNew['text'].astype(str)
-
-
 
     # dfNew['cleaned_text'] = dfNew['text'].apply(clean_text)
     # print(dfNew['cleaned_text'])
@@ -269,11 +265,11 @@ if __name__ == "__main__":
     # dfNew['category'] = dfNew['category'].replace({"Household": 0, "Books": 1, "Electronics": 2, "Clothing & Accessories": 3})
 
     x_train, x_test, y_train, y_test = train_test_split(dfNew['text'], dfNew['category'],
-                                                        test_size=0.2,random_state=42)
+                                                        test_size=0.2, random_state=42)
 
     frequencies = get_n_grams_frequencies(x_train, y_train, 3)
-#      list of tuples where each tuple has pair of (n_gram@category, frequency)
-    classifier = KNNClassifier(17777)
+    #      list of tuples where each tuple has pair of (n_gram@category, frequency)
+    classifier = KNNClassifier(3501)
     proccessed_x_test = pretprocessing(x_test, 3)
 
     classifier.fit(frequencies, y_train)
@@ -282,7 +278,10 @@ if __name__ == "__main__":
 
     accuracy = accuracy_score(y_test, y_pred)
     print("Accuracy:", accuracy * 100)
-
-
-
-
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"Accuracy: {accuracy}")
+    print("Model evaluation on Test data")
+    print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+    print()
+    print("Classification Report:\n", classification_report(y_test, y_pred))
+    print()
