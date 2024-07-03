@@ -241,10 +241,7 @@ def load_model(vocab_size, embedding_dim, hidden_dim, num_layers):
     return model
 
 
-# TODO: Separate by modules
-
-
-
+# TODO: Maybe separate by modules
 
 if __name__ == '__main__':
     episodes = load_scripts("scripts")
@@ -328,7 +325,7 @@ if __name__ == '__main__':
                         text_file.write(generated_text)
 
                     print(f"Generated text saved to {file_name}")
-                except Exception as e:  # TODO: What exception is this???
+                except Exception as e:
                     print("Unable to generate text, no model present!")
             case _:
                 break
